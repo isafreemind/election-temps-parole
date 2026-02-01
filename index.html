@@ -151,21 +151,13 @@ const DATA = {
   }
 };
 
-// Tous les candidats des deux élections (union), triés par voix 2022 puis 2017
-function getAllCandidates() {
-  const all = new Map();
-  for (const c of DATA["2017"].candidats) all.set(c.nom, { n2017: c });
-  for (const c of DATA["2022"].candidats) {
-    const entry = all.get(c.nom) || {};
-    entry.n2022 = c;
-    all.set(c.nom, entry);
-  }
-  // Trier par voix max entre les deux années
-  return [...all.keys()].sort((a, b) => {
-    const va = Math.max(all.get(a).n2017?.voix || 0, all.get(a).n2022?.voix || 0);
-    const vb = Math.max(all.get(b).n2017?.voix || 0, all.get(b).n2022?.voix || 0);
-    return vb - va;
-  });
+// Candidats présents aux deux élections, triés par voix 2022
+function getCommonCandidates() {
+  const noms2017 = new Set(DATA["2017"].candidats.map(c => c.nom));
+  return DATA["2022"].candidats
+    .filter(c => noms2017.has(c.nom))
+    .sort((a, b) => b.voix - a.voix)
+    .map(c => c.nom);
 }
 
 const COLORS = [
@@ -334,7 +326,7 @@ function renderCompare() {
   destroyCharts();
 
   const get = (year, nom) => DATA[year].candidats.find(c => c.nom === nom);
-  const labels = getAllCandidates();
+  const labels = getCommonCandidates();
 
   // Ratio comparison (tous les candidats)
   const ratios2017 = labels.map(n => get('2017', n)?.ratio || 0);
@@ -370,7 +362,7 @@ function renderCompare() {
     }
   });
 
-  document.getElementById('title-ratio').textContent = 'Comparaison 2017 vs 2022 — Ratio sec/voix (tous les candidats)';
+  document.getElementById('title-ratio').textContent = 'Comparaison 2017 vs 2022 — Ratio sec/voix (candidats aux 2 scrutins)';
 
   // Temps comparison
   const tp2017 = labels.map(n => secondsToHours(get('2017', n)?.tp || 0));
@@ -443,9 +435,10 @@ function renderCompare() {
 
   document.getElementById('title-voix').textContent = 'Voix — 2017 vs 2022';
 
-  // Scatter both years (tous les candidats)
+  // Scatter both years (candidats communs uniquement)
+  const commonSet = new Set(labels);
   const makePoints = (year, color) =>
-    DATA[year].candidats.map(c => ({
+    DATA[year].candidats.filter(c => commonSet.has(c.nom)).map(c => ({
       label: c.nom + ' (' + year + ')',
       data: [{ x: secondsToHours(c.tp), y: c.voix, r: Math.max(5, c.ratio * 25) }],
       backgroundColor: color
