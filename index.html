@@ -63,7 +63,7 @@
       margin-bottom: 1rem;
       font-weight: 500;
     }
-    .chart-container { position: relative; width: 100%; }
+    .chart-container { position: relative; width: 100%; min-height: 400px; }
     .sources {
       max-width: 1400px;
       margin: 2rem auto 0;
@@ -173,6 +173,8 @@ const chartDefaults = {
 };
 Chart.defaults.color = chartDefaults.color;
 Chart.defaults.borderColor = chartDefaults.borderColor;
+Chart.defaults.maintainAspectRatio = false;
+Chart.defaults.scales.y = { ticks: { autoSkip: false } };
 
 let charts = {};
 let currentYear = '2017';
