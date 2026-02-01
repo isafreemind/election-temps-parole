@@ -91,8 +91,12 @@
 
   <div class="grid">
     <div class="chart-card full">
-      <h2 id="title-ratio">Ratio : secondes de parole par voix obtenue</h2>
-      <div class="chart-container"><canvas id="chartRatio"></canvas></div>
+      <h2 id="title-poids">Poids du temps de parole (% cumulé)</h2>
+      <div class="chart-container"><canvas id="chartPoids"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <h2 id="title-seuil">Effet de seuil de visibilité : corrélation temps/voix selon l'exposition</h2>
+      <div class="chart-container"><canvas id="chartSeuil"></canvas></div>
     </div>
     <div class="chart-card">
       <h2 id="title-temps">Temps de parole (heures)</h2>
@@ -105,6 +109,22 @@
     <div class="chart-card full">
       <h2 id="title-scatter">Temps de parole vs Voix (bulle = ratio)</h2>
       <div class="chart-container"><canvas id="chartScatter"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <h2 id="title-top3">Concentration médiatique : Top 3 vs Autres</h2>
+      <div class="chart-container"><canvas id="chartTop3"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <h2 id="title-distrib">Distribution des ratios (histogramme)</h2>
+      <div class="chart-container"><canvas id="chartDistrib"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <h2 id="title-ratio">Ratio : secondes de parole par voix obtenue</h2>
+      <div class="chart-container"><canvas id="chartRatio"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <h2 id="title-evolution">Évolution 2017→2022 (candidats récurrents)</h2>
+      <div class="chart-container"><canvas id="chartEvolution"></canvas></div>
     </div>
   </div>
 
@@ -207,7 +227,77 @@ function renderYear(year) {
   const byVoix = sortByVoix(d.candidats);
   const byTp = sortByTp(d.candidats);
 
-  // Ratio chart
+  // Calcul du poids du temps de parole par groupes de 4
+  const totalTp = d.candidats.reduce((sum, c) => sum + c.tp, 0);
+  const totalVoix = d.candidats.reduce((sum, c) => sum + c.voix, 0);
+  const sortedByTp = sortByTp(d.candidats);
+  const groupSize = 4;
+  const groups = [];
+  
+  for (let i = 0; i < sortedByTp.length; i += groupSize) {
+    const groupCandidats = sortedByTp.slice(i, i + groupSize);
+    const groupTp = groupCandidats.reduce((sum, c) => sum + c.tp, 0);
+    const groupPct = (groupTp / totalTp) * 100;
+    
+    let label;
+    if (i === 0) {
+      label = `Top ${Math.min(groupSize, groupCandidats.length)}`;
+    } else {
+      label = `${i + 1}-${i + groupCandidats.length}`;
+    }
+    
+    groups.push({
+      label: label,
+      candidats: groupCandidats.map(c => c.nom).join(', '),
+      pct: groupPct,
+      heures: secondsToHours(groupTp)
+    });
+  }
+
+  // Poids du temps de parole chart (barres)
+  charts.poids = new Chart(document.getElementById('chartPoids'), {
+    type: 'bar',
+    data: {
+      labels: groups.map(g => g.label),
+      datasets: [{
+        label: '% du temps de parole total',
+        data: groups.map(g => g.pct),
+        backgroundColor: groups.map((_, i) => {
+          const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+          return colors[i % colors.length];
+        }),
+        borderRadius: 6,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => groups[ctx[0].dataIndex].label,
+            label: ctx => [
+              `Part: ${ctx.raw.toFixed(2)}%`,
+              `Temps: ${groups[ctx.dataIndex].heures}h`,
+              `Candidats: ${groups[ctx.dataIndex].candidats}`
+            ]
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Groupes de candidats (par ordre de temps de parole)' },
+          grid: { color: '#1e293b' }
+        },
+        y: {
+          title: { display: true, text: 'Part du temps de parole (%)' },
+          grid: { color: '#1e293b' },
+          ticks: { callback: v => v + '%' }
+        }
+      }
+    }
+  });  // Ratio chart
   charts.ratio = new Chart(document.getElementById('chartRatio'), {
     type: 'bar',
     data: {
@@ -321,14 +411,405 @@ function renderYear(year) {
     }
   });
 
-  document.getElementById('title-ratio').textContent = `${d.description} — Ratio : secondes de parole par voix`;
-}
+  // Top 3 vs Autres
+  const sorted = sortByVoix(d.candidats);
+  const top3Tp = sorted.slice(0, 3).reduce((sum, c) => sum + c.tp, 0);
+  const autresTp = sorted.slice(3).reduce((sum, c) => sum + c.tp, 0);
+  const top3Voix = sorted.slice(0, 3).reduce((sum, c) => sum + c.voix, 0);
+  const autresVoix = sorted.slice(3).reduce((sum, c) => sum + c.voix, 0);
 
-function renderCompare() {
+  charts.top3 = new Chart(document.getElementById('chartTop3'), {
+    type: 'bar',
+    data: {
+      labels: ['Temps de parole (%)', 'Voix (%)'],
+      datasets: [
+        {
+          label: 'Top 3',
+          data: [
+            (top3Tp / totalTp) * 100,
+            (top3Voix / totalVoix) * 100
+          ],
+          backgroundColor: '#3b82f6',
+          borderRadius: 6
+        },
+        {
+          label: 'Autres candidats',
+          data: [
+            (autresTp / totalTp) * 100,
+            (autresVoix / totalVoix) * 100
+          ],
+          backgroundColor: '#94a3b8',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#1e293b' } },
+        y: { 
+          title: { display: true, text: 'Pourcentage (%)' },
+          grid: { color: '#1e293b' },
+          max: 100
+        }
+      }
+    }
+  });
+
+  // Distribution des ratios (histogramme)
+  const ratios = d.candidats.map(c => c.ratio).sort((a, b) => a - b);
+  const bins = [0, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 2.0];
+  const binCounts = new Array(bins.length - 1).fill(0);
+  const binLabels = [];
+  
+  for (let i = 0; i < bins.length - 1; i++) {
+    binLabels.push(`${bins[i]}-${bins[i+1]}`);
+    binCounts[i] = ratios.filter(r => r >= bins[i] && r < bins[i+1]).length;
+  }
+
+  charts.distrib = new Chart(document.getElementById('chartDistrib'), {
+    type: 'bar',
+    data: {
+      labels: binLabels,
+      datasets: [{
+        label: 'Nombre de candidats',
+        data: binCounts,
+        backgroundColor: '#8b5cf6',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.raw} candidat(s) dans cette tranche`
+          }
+        }
+      },
+      scales: {
+        x: { 
+          title: { display: true, text: 'Ratio (secondes/voix)' },
+          grid: { color: '#1e293b' }
+        },
+        y: { 
+          title: { display: true, text: 'Nombre de candidats' },
+          grid: { color: '#1e293b' },
+          ticks: { stepSize: 1 }
+        }
+      }
+    }
+  });
+
+  // Évolution 2017→2022 pour les candidats récurrents
+  const commonCandidats = getCommonCandidates();
+  const evolutionData = commonCandidats.map(nom => {
+    const c2017 = DATA['2017'].candidats.find(c => c.nom === nom);
+    const c2022 = DATA['2022'].candidats.find(c => c.nom === nom);
+    return {
+      nom,
+      ratio2017: c2017?.ratio || 0,
+      ratio2022: c2022?.ratio || 0,
+      evolution: ((c2022?.ratio || 0) - (c2017?.ratio || 0)) / (c2017?.ratio || 1) * 100
+    };
+  });
+
+  charts.evolution = new Chart(document.getElementById('chartEvolution'), {
+    type: 'bar',
+    data: {
+      labels: evolutionData.map(c => c.nom),
+      datasets: [
+        {
+          label: '2017',
+          data: evolutionData.map(c => c.ratio2017),
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        },
+        {
+          label: '2022',
+          data: evolutionData.map(c => c.ratio2022),
+          backgroundColor: '#f59e0b',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            afterLabel: ctx => {
+              const idx = ctx.dataIndex;
+              const evol = evolutionData[idx].evolution;
+              if (evol !== 0 && ctx.datasetIndex === 1) {
+                return `Évolution: ${evol > 0 ? '+' : ''}${evol.toFixed(1)}%`;
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Candidats présents aux 2 élections' },
+          grid: { color: '#1e293b' }
+        },
+        y: {
+          title: { display: true, text: 'Ratio (sec/voix)' },
+          grid: { color: '#1e293b' }
+        }
+      }
+    }
+  });
+
+  // Graphique de l'effet de seuil de visibilité
+  const totalVoixSeuil = d.candidats.reduce((sum, c) => sum + c.voix, 0);
+  const totalTpSeuil = d.candidats.reduce((sum, c) => sum + c.tp, 0);
+
+  const candidatsAvecPct = d.candidats.map(c => ({
+    nom: c.nom,
+    pctTp: (c.tp / totalTpSeuil) * 100,
+    pctVoix: (c.voix / totalVoixSeuil) * 100,
+    voix: c.voix,
+    tp: c.tp
+  }));
+
+  // Catégoriser par seuil de visibilité
+  const hautesExposition = candidatsAvecPct.filter(c => c.pctTp >= 15);
+  const moyenneExposition = candidatsAvecPct.filter(c => c.pctTp >= 5 && c.pctTp < 15);
+  const faibleExposition = candidatsAvecPct.filter(c => c.pctTp < 5);
+
+  charts.seuil = new Chart(document.getElementById('chartSeuil'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: `Haute exposition (≥15% média) - ${hautesExposition.length} candidats`,
+          data: hautesExposition.map(c => ({ x: c.pctTp, y: c.pctVoix, nom: c.nom })),
+          backgroundColor: '#10b981',
+          pointRadius: 12,
+          pointHoverRadius: 16
+        },
+        {
+          label: `Moyenne exposition (5-15% média) - ${moyenneExposition.length} candidats`,
+          data: moyenneExposition.map(c => ({ x: c.pctTp, y: c.pctVoix, nom: c.nom })),
+          backgroundColor: '#f59e0b',
+          pointRadius: 10,
+          pointHoverRadius: 14
+        },
+        {
+          label: `Faible exposition (<5% média) - ${faibleExposition.length} candidats`,
+          data: faibleExposition.map(c => ({ x: c.pctTp, y: c.pctVoix, nom: c.nom })),
+          backgroundColor: '#ef4444',
+          pointRadius: 8,
+          pointHoverRadius: 12
+        },
+        {
+          label: 'Proportionnalité parfaite',
+          data: [{x: 0, y: 0}, {x: 50, y: 50}],
+          type: 'line',
+          borderColor: '#94a3b8',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'Seuil de visibilité (15%)',
+          data: [{x: 15, y: 0}, {x: 15, y: 50}],
+          type: 'line',
+          borderColor: '#8b5cf6',
+          borderWidth: 2,
+          borderDash: [10, 5],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (!ctx.raw.nom) return ctx.dataset.label;
+              const ecart = Math.abs(ctx.raw.x - ctx.raw.y);
+              const correlation = ctx.raw.x >= 15 ? 
+                '(forte corrélation temps→voix)' : 
+                '(candidat effacé médiatiquement)';
+              return [
+                `${ctx.raw.nom}`,
+                `Média: ${ctx.raw.x.toFixed(2)}% | Voix: ${ctx.raw.y.toFixed(2)}%`,
+                `Écart: ${ecart.toFixed(2)} points ${correlation}`
+              ];
+            }
+          }
+        },
+        annotation: {
+          annotations: {
+            zone1: {
+              type: 'box',
+              xMin: 15,
+              xMax: 50,
+              yMin: 0,
+              yMax: 50,
+              backgroundColor: 'rgba(16, 185, 129, 0.05)',
+              borderWidth: 0,
+              label: {
+                display: true,
+                content: 'Zone de forte corrélation',
+                position: 'start'
+              }
+            },
+            zone2: {
+              type: 'box',
+              xMin: 0,
+              xMax: 15,
+              yMin: 0,
+              yMax: 50,
+              backgroundColor: 'rgba(239, 68, 68, 0.05)',
+              borderWidth: 0,
+              label: {
+                display: true,
+                content: 'Zone d\'effacement médiatique',
+                position: 'start'
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: '% du temps de parole total' },
+          grid: { color: '#1e293b' },
+          min: 0,
+          max: 35
+        },
+        y: {
+          title: { display: true, text: '% des voix totales' },
+          grid: { color: '#1e293b' },
+          min: 0,
+          max: 35
+        }
+      }
+    }
+  });
+
+  document.getElementById('title-ratio').textContent = `${d.description} — Ratio : secondes de parole par voix`;
+}function renderCompare() {
   destroyCharts();
 
   const get = (year, nom) => DATA[year].candidats.find(c => c.nom === nom);
   const labels = getCommonCandidates();
+
+  // Poids du temps de parole comparaison par groupes
+  const calcPoidsGroupes = (year) => {
+    const total = DATA[year].candidats.reduce((sum, c) => sum + c.tp, 0);
+    const sorted = sortByTp(DATA[year].candidats);
+    const groupSize = 4;
+    const groups = [];
+
+    for (let i = 0; i < sorted.length; i += groupSize) {
+      const groupCandidats = sorted.slice(i, i + groupSize);
+      const groupTp = groupCandidats.reduce((sum, c) => sum + c.tp, 0);
+      const groupPct = (groupTp / total) * 100;
+
+      let label;
+      if (i === 0) {
+        label = `Top ${Math.min(groupSize, groupCandidats.length)}`;
+      } else {
+        label = `${i + 1}-${i + groupCandidats.length}`;
+      }
+
+      groups.push({
+        label: label,
+        candidats: groupCandidats.map(c => c.nom).join(', '),
+        pct: groupPct,
+        heures: secondsToHours(groupTp)
+      });
+    }
+    return groups;
+  };
+
+  const groups2017 = calcPoidsGroupes('2017');
+  const groups2022 = calcPoidsGroupes('2022');
+  
+  // Utiliser le plus grand nombre de groupes pour les labels
+  const maxGroups = Math.max(groups2017.length, groups2022.length);
+  const groupLabels = [];
+  for (let i = 0; i < maxGroups; i++) {
+    if (i === 0) {
+      groupLabels.push('Top 4');
+    } else {
+      groupLabels.push(`${i * 4 + 1}-${(i + 1) * 4}`);
+    }
+  }
+
+  charts.poids = new Chart(document.getElementById('chartPoids'), {
+    type: 'bar',
+    data: {
+      labels: groupLabels,
+      datasets: [
+        {
+          label: '2017 - % temps de parole',
+          data: groups2017.map(g => g.pct),
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        },
+        {
+          label: '2022 - % temps de parole',
+          data: groups2022.map(g => g.pct),
+          backgroundColor: '#f59e0b',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => {
+              const year = ctx.datasetIndex === 0 ? '2017' : '2022';
+              const groups = ctx.datasetIndex === 0 ? groups2017 : groups2022;
+              const group = groups[ctx.dataIndex];
+              if (!group) return `${year}: 0%`;
+              return [
+                `${year}: ${group.pct.toFixed(2)}%`,
+                `Temps: ${group.heures}h`,
+                `Candidats: ${group.candidats}`
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Groupes de candidats (par ordre de temps de parole)' },
+          grid: { color: '#1e293b' }
+        },
+        y: {
+          title: { display: true, text: 'Part du temps de parole (%)' },
+          grid: { color: '#1e293b' },
+          ticks: { callback: v => v + '%' }
+        }
+      }
+    }
+  });
+
+  document.getElementById('title-poids').textContent = 'Poids du temps de parole par groupe — 2017 vs 2022';
 
   // Ratio comparison (tous les candidats)
   const ratios2017 = labels.map(n => get('2017', n)?.ratio || 0);
@@ -470,6 +951,203 @@ function renderCompare() {
   });
 
   document.getElementById('title-scatter').textContent = 'Temps de parole vs Voix — Bleu: 2017, Orange: 2022';
+
+  // Top 3 vs Autres - comparaison
+  const calcTop3 = (year) => {
+    const d = DATA[year];
+    const sorted = sortByVoix(d.candidats);
+    const totalTp = d.candidats.reduce((sum, c) => sum + c.tp, 0);
+    const totalVoix = d.candidats.reduce((sum, c) => sum + c.voix, 0);
+    const top3Tp = sorted.slice(0, 3).reduce((sum, c) => sum + c.tp, 0);
+    const autresTp = sorted.slice(3).reduce((sum, c) => sum + c.tp, 0);
+    const top3Voix = sorted.slice(0, 3).reduce((sum, c) => sum + c.voix, 0);
+    const autresVoix = sorted.slice(3).reduce((sum, c) => sum + c.voix, 0);
+    return {
+      tpTop3: (top3Tp / totalTp) * 100,
+      tpAutres: (autresTp / totalTp) * 100,
+      voixTop3: (top3Voix / totalVoix) * 100,
+      voixAutres: (autresVoix / totalVoix) * 100
+    };
+  };
+
+  const top2017 = calcTop3('2017');
+  const top2022 = calcTop3('2022');
+
+  charts.top3 = new Chart(document.getElementById('chartTop3'), {
+    type: 'bar',
+    data: {
+      labels: ['2017 - Temps média', '2017 - Voix', '2022 - Temps média', '2022 - Voix'],
+      datasets: [
+        {
+          label: 'Top 3',
+          data: [top2017.tpTop3, top2017.voixTop3, top2022.tpTop3, top2022.voixTop3],
+          backgroundColor: '#3b82f6',
+          borderRadius: 6
+        },
+        {
+          label: 'Autres',
+          data: [top2017.tpAutres, top2017.voixAutres, top2022.tpAutres, top2022.voixAutres],
+          backgroundColor: '#94a3b8',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#1e293b' } },
+        y: {
+          title: { display: true, text: 'Pourcentage (%)' },
+          grid: { color: '#1e293b' },
+          max: 100
+        }
+      }
+    }
+  });
+
+  document.getElementById('title-top3').textContent = 'Concentration médiatique : Top 3 vs Autres — 2017 vs 2022';
+
+  // Distribution des ratios - comparaison
+  const bins = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 2.0];
+  const binLabels = [];
+  for (let i = 0; i < bins.length - 1; i++) {
+    binLabels.push(`${bins[i]}-${bins[i+1]}`);
+  }
+
+  const countBins = (year) => {
+    const ratios = DATA[year].candidats.map(c => c.ratio);
+    const counts = new Array(bins.length - 1).fill(0);
+    for (let i = 0; i < bins.length - 1; i++) {
+      counts[i] = ratios.filter(r => r >= bins[i] && r < bins[i+1]).length;
+    }
+    return counts;
+  };
+
+  charts.distrib = new Chart(document.getElementById('chartDistrib'), {
+    type: 'bar',
+    data: {
+      labels: binLabels,
+      datasets: [
+        {
+          label: '2017',
+          data: countBins('2017'),
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        },
+        {
+          label: '2022',
+          data: countBins('2022'),
+          backgroundColor: '#f59e0b',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.raw} candidat(s)`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Ratio (secondes/voix)' },
+          grid: { color: '#1e293b' }
+        },
+        y: {
+          title: { display: true, text: 'Nombre de candidats' },
+          grid: { color: '#1e293b' },
+          ticks: { stepSize: 1 }
+        }
+      }
+    }
+  });
+
+  document.getElementById('title-distrib').textContent = 'Distribution des ratios — 2017 vs 2022';
+
+  // Évolution 2017→2022
+  const evolutionData = labels.map(nom => {
+    const c2017 = get('2017', nom);
+    const c2022 = get('2022', nom);
+    return {
+      nom,
+      ratio2017: c2017?.ratio || 0,
+      ratio2022: c2022?.ratio || 0,
+      evolution: c2017?.ratio ? ((c2022?.ratio || 0) - c2017.ratio) / c2017.ratio * 100 : 0
+    };
+  });
+
+  charts.evolution = new Chart(document.getElementById('chartEvolution'), {
+    type: 'bar',
+    data: {
+      labels: evolutionData.map(c => c.nom),
+      datasets: [
+        {
+          label: '2017',
+          data: evolutionData.map(c => c.ratio2017),
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        },
+        {
+          label: '2022',
+          data: evolutionData.map(c => c.ratio2022),
+          backgroundColor: '#f59e0b',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const idx = ctx.dataIndex;
+              const evol = evolutionData[idx].evolution;
+              let result = `${ctx.dataset.label}: ${ctx.raw.toFixed(4)} sec/voix`;
+              if (ctx.datasetIndex === 1 && evol !== 0) {
+                result += ` (${evol > 0 ? '+' : ''}${evol.toFixed(1)}%)`;
+              }
+              return result;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Candidats récurrents' },
+          grid: { color: '#1e293b' }
+        },
+        y: {
+          title: { display: true, text: 'Ratio (sec/voix)' },
+          grid: { color: '#1e293b' }
+        }
+      }
+    }
+  });
+
+  document.getElementById('title-evolution').textContent = 'Évolution du ratio 2017→2022 (candidats récurrents)';
+
+  // Graphique de seuil de visibilité en mode comparaison - afficher un message
+  const seuilCanvas = document.getElementById('chartSeuil');
+  const seuilCtx = seuilCanvas.getContext('2d');
+  seuilCtx.clearRect(0, 0, seuilCanvas.width, seuilCanvas.height);
+  seuilCtx.fillStyle = '#94a3b8';
+  seuilCtx.font = '16px sans-serif';
+  seuilCtx.textAlign = 'center';
+  seuilCtx.fillText('Effet de seuil disponible uniquement en vue 2017 ou 2022', seuilCanvas.width / 2, seuilCanvas.height / 2);
 }
 
 function switchYear(year) {
@@ -478,9 +1156,15 @@ function switchYear(year) {
   currentYear = year;
 
   // Reset subtitles
+  document.getElementById('title-poids').textContent = 'Poids du temps de parole par groupe de candidats';
+  document.getElementById('title-ratio').textContent = 'Ratio : secondes de parole par voix obtenue';
   document.getElementById('title-temps').textContent = 'Temps de parole (heures)';
   document.getElementById('title-voix').textContent = 'Nombre de voix (1er tour)';
   document.getElementById('title-scatter').textContent = 'Temps de parole vs Voix (bulle = ratio)';
+  document.getElementById('title-top3').textContent = 'Concentration médiatique : Top 3 vs Autres';
+  document.getElementById('title-distrib').textContent = 'Distribution des ratios (histogramme)';
+  document.getElementById('title-evolution').textContent = 'Évolution 2017→2022 (candidats récurrents)';
+  document.getElementById('title-seuil').textContent = 'Effet de seuil de visibilité : corrélation temps/voix selon l\'exposition';
 
   if (year === 'compare') {
     renderCompare();
