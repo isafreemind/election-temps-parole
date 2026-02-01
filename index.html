@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temps de parole vs Votes - Présidentielles 2017 &amp; 2022</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+      color: #f1f5f9;
+    }
+    .subtitle {
+      text-align: center;
+      color: #94a3b8;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+    .tab {
+      padding: 0.6rem 1.5rem;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s;
+    }
+    .tab:hover { border-color: #60a5fa; color: #e2e8f0; }
+    .tab.active { background: #1d4ed8; border-color: #3b82f6; color: #fff; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .chart-card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid #334155;
+    }
+    .chart-card.full { grid-column: 1 / -1; }
+    .chart-card h2 {
+      font-size: 1rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+    .chart-container { position: relative; width: 100%; }
+    .sources {
+      max-width: 1400px;
+      margin: 2rem auto 0;
+      padding: 1rem;
+      color: #64748b;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    .sources a { color: #60a5fa; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      body { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Temps de parole vs Votes aux Présidentielles</h1>
+  <p class="subtitle">Ratio entre le temps de parole médiatique et le nombre de voix obtenues au 1er tour</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchYear('2017')">2017</button>
+    <button class="tab" onclick="switchYear('2022')">2022</button>
+    <button class="tab" onclick="switchYear('compare')">Comparaison</button>
+  </div>
+
+  <div class="grid">
+    <div class="chart-card full">
+      <h2 id="title-ratio">Ratio : secondes de parole par voix obtenue</h2>
+      <div class="chart-container"><canvas id="chartRatio"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2 id="title-temps">Temps de parole (heures)</h2>
+      <div class="chart-container"><canvas id="chartTemps"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h2 id="title-voix">Nombre de voix (1er tour)</h2>
+      <div class="chart-container"><canvas id="chartVoix"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <h2 id="title-scatter">Temps de parole vs Voix (bulle = ratio)</h2>
+      <div class="chart-container"><canvas id="chartScatter"></canvas></div>
+    </div>
+  </div>
+
+  <div class="sources">
+    Sources : CSA/Arcom (temps de parole) &mdash; Conseil constitutionnel (résultats) &mdash;
+    <a href="https://www.data.gouv.fr/datasets/temps-de-parole-des-candidats-election-presidentielle-2022/">data.gouv.fr</a> &mdash;
+    <a href="https://www.politologue.com/Presidentielle2017/TempsParole/">politologue.com</a>
+  </div>
+
+<script>
+const DATA = {
+  "2017": {
+    "description": "Présidentielle 2017 - 1er tour (23 avril 2017)",
+    "candidats": [
+      {"nom": "FILLON F.", "voix": 7212995, "tp": 1178862, "ratio": 0.1634},
+      {"nom": "HAMON B.", "voix": 2291288, "tp": 1022765, "ratio": 0.4464},
+      {"nom": "MACRON E.", "voix": 8656346, "tp": 944938, "ratio": 0.1092},
+      {"nom": "LE PEN M.", "voix": 7678491, "tp": 926833, "ratio": 0.1207},
+      {"nom": "MELENCHON J-L.", "voix": 7059951, "tp": 674990, "ratio": 0.0956},
+      {"nom": "DUPONT-AIGNAN N.", "voix": 1695000, "tp": 246262, "ratio": 0.1453},
+      {"nom": "POUTOU P.", "voix": 394505, "tp": 163541, "ratio": 0.4145},
+      {"nom": "ARTHAUD N.", "voix": 232384, "tp": 151184, "ratio": 0.6506},
+      {"nom": "ASSELINEAU F.", "voix": 332547, "tp": 144563, "ratio": 0.4347},
+      {"nom": "LASSALLE J.", "voix": 435301, "tp": 135173, "ratio": 0.3105},
+      {"nom": "CHEMINADE J.", "voix": 65586, "tp": 123151, "ratio": 1.8777}
+    ]
+  },
+  "2022": {
+    "description": "Présidentielle 2022 - 1er tour (10 avril 2022)",
+    "candidats": [
+      {"nom": "MACRON E.", "voix": 9783058, "tp": 281769, "ratio": 0.0288},
+      {"nom": "LE PEN M.", "voix": 8133828, "tp": 224146, "ratio": 0.0276},
+      {"nom": "MELENCHON J-L.", "voix": 7712520, "tp": 180296, "ratio": 0.0234},
+      {"nom": "ZEMMOUR E.", "voix": 2485226, "tp": 156056, "ratio": 0.0628},
+      {"nom": "PECRESSE V.", "voix": 1679001, "tp": 219615, "ratio": 0.1308},
+      {"nom": "JADOT Y.", "voix": 1627853, "tp": 127155, "ratio": 0.0781},
+      {"nom": "LASSALLE J.", "voix": 1101387, "tp": 72586, "ratio": 0.0659},
+      {"nom": "ROUSSEL F.", "voix": 802422, "tp": 106579, "ratio": 0.1328},
+      {"nom": "DUPONT-AIGNAN N.", "voix": 725176, "tp": 81861, "ratio": 0.1129},
+      {"nom": "HIDALGO A.", "voix": 616478, "tp": 120329, "ratio": 0.1952},
+      {"nom": "POUTOU P.", "voix": 268904, "tp": 66629, "ratio": 0.2478},
+      {"nom": "ARTHAUD N.", "voix": 197094, "tp": 72894, "ratio": 0.3698}
+    ]
+  }
+};
+
+// Candidats présents aux deux élections
+const COMMON = ["MACRON E.", "LE PEN M.", "MELENCHON J-L.", "DUPONT-AIGNAN N.",
+                "POUTOU P.", "ARTHAUD N.", "LASSALLE J."];
+
+const COLORS = [
+  '#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6',
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1',
+  '#14b8a6', '#e11d48'
+];
+
+const chartDefaults = {
+  color: '#94a3b8',
+  borderColor: '#334155',
+  font: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }
+};
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+
+let charts = {};
+let currentYear = '2017';
+
+function sortByRatio(candidats) {
+  return [...candidats].sort((a, b) => b.ratio - a.ratio);
+}
+
+function sortByVoix(candidats) {
+  return [...candidats].sort((a, b) => b.voix - a.voix);
+}
+
+function sortByTp(candidats) {
+  return [...candidats].sort((a, b) => b.tp - a.tp);
+}
+
+function secondsToHours(s) {
+  return Math.round(s / 3600 * 10) / 10;
+}
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function renderYear(year) {
+  destroyCharts();
+  const d = DATA[year];
+  const byRatio = sortByRatio(d.candidats);
+  const byVoix = sortByVoix(d.candidats);
+  const byTp = sortByTp(d.candidats);
+
+  // Ratio chart
+  charts.ratio = new Chart(document.getElementById('chartRatio'), {
+    type: 'bar',
+    data: {
+      labels: byRatio.map(c => c.nom),
+      datasets: [{
+        label: 'Secondes de parole / voix',
+        data: byRatio.map(c => c.ratio),
+        backgroundColor: byRatio.map((_, i) => COLORS[i % COLORS.length]),
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.raw.toFixed(4)} sec/voix`
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Secondes de parole par voix' }, grid: { color: '#1e293b' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Temps de parole chart
+  charts.temps = new Chart(document.getElementById('chartTemps'), {
+    type: 'bar',
+    data: {
+      labels: byTp.map(c => c.nom),
+      datasets: [{
+        label: 'Heures',
+        data: byTp.map(c => secondsToHours(c.tp)),
+        backgroundColor: '#3b82f6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Heures' }, grid: { color: '#1e293b' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Voix chart
+  charts.voix = new Chart(document.getElementById('chartVoix'), {
+    type: 'bar',
+    data: {
+      labels: byVoix.map(c => c.nom),
+      datasets: [{
+        label: 'Voix',
+        data: byVoix.map(c => c.voix),
+        backgroundColor: '#10b981',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.raw.toLocaleString('fr-FR') + ' voix'
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Nombre de voix' }, grid: { color: '#1e293b' },
+              ticks: { callback: v => (v / 1e6).toFixed(1) + 'M' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Scatter/bubble chart
+  charts.scatter = new Chart(document.getElementById('chartScatter'), {
+    type: 'bubble',
+    data: {
+      datasets: d.candidats.map((c, i) => ({
+        label: c.nom,
+        data: [{ x: secondsToHours(c.tp), y: c.voix, r: Math.max(5, c.ratio * 30) }],
+        backgroundColor: COLORS[i % COLORS.length] + 'cc'
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const ds = ctx.dataset;
+              return `${ds.label} : ${ctx.raw.x}h parole, ${ctx.raw.y.toLocaleString('fr-FR')} voix`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Temps de parole (heures)' }, grid: { color: '#1e293b' } },
+        y: { title: { display: true, text: 'Voix' }, grid: { color: '#1e293b' },
+             ticks: { callback: v => (v / 1e6).toFixed(1) + 'M' } }
+      }
+    }
+  });
+
+  document.getElementById('title-ratio').textContent = `${d.description} — Ratio : secondes de parole par voix`;
+}
+
+function renderCompare() {
+  destroyCharts();
+
+  const get = (year, nom) => DATA[year].candidats.find(c => c.nom === nom);
+
+  // Ratio comparison
+  const labels = COMMON;
+  const ratios2017 = labels.map(n => get('2017', n)?.ratio || 0);
+  const ratios2022 = labels.map(n => get('2022', n)?.ratio || 0);
+
+  charts.ratio = new Chart(document.getElementById('chartRatio'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '2017', data: ratios2017, backgroundColor: '#3b82f6', borderRadius: 4 },
+        { label: '2022', data: ratios2022, backgroundColor: '#f59e0b', borderRadius: 4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: true } },
+      scales: {
+        x: { title: { display: true, text: 'Secondes de parole / voix' }, grid: { color: '#1e293b' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  document.getElementById('title-ratio').textContent = 'Comparaison 2017 vs 2022 — Ratio sec/voix (candidats communs)';
+
+  // Temps comparison
+  const tp2017 = labels.map(n => secondsToHours(get('2017', n)?.tp || 0));
+  const tp2022 = labels.map(n => secondsToHours(get('2022', n)?.tp || 0));
+
+  charts.temps = new Chart(document.getElementById('chartTemps'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '2017', data: tp2017, backgroundColor: '#3b82f6', borderRadius: 4 },
+        { label: '2022', data: tp2022, backgroundColor: '#f59e0b', borderRadius: 4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Heures' }, grid: { color: '#1e293b' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  document.getElementById('title-temps').textContent = 'Temps de parole (heures) — 2017 vs 2022';
+
+  // Voix comparison
+  const voix2017 = labels.map(n => get('2017', n)?.voix || 0);
+  const voix2022 = labels.map(n => get('2022', n)?.voix || 0);
+
+  charts.voix = new Chart(document.getElementById('chartVoix'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: '2017', data: voix2017, backgroundColor: '#3b82f6', borderRadius: 4 },
+        { label: '2022', data: voix2022, backgroundColor: '#f59e0b', borderRadius: 4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        tooltip: {
+          callbacks: { label: ctx => ctx.dataset.label + ' : ' + ctx.raw.toLocaleString('fr-FR') + ' voix' }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Voix' }, grid: { color: '#1e293b' },
+             ticks: { callback: v => (v / 1e6).toFixed(1) + 'M' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  document.getElementById('title-voix').textContent = 'Voix — 2017 vs 2022';
+
+  // Scatter both years
+  const makePoints = (year, color) =>
+    DATA[year].candidats.map(c => ({
+      label: c.nom + ' (' + year + ')',
+      data: [{ x: secondsToHours(c.tp), y: c.voix, r: Math.max(5, c.ratio * 25) }],
+      backgroundColor: color
+    }));
+
+  charts.scatter = new Chart(document.getElementById('chartScatter'), {
+    type: 'bubble',
+    data: {
+      datasets: [...makePoints('2017', '#3b82f6aa'), ...makePoints('2022', '#f59e0baa')]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label} : ${ctx.raw.x}h, ${ctx.raw.y.toLocaleString('fr-FR')} voix`
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Temps de parole (heures)' }, grid: { color: '#1e293b' } },
+        y: { title: { display: true, text: 'Voix' }, grid: { color: '#1e293b' },
+             ticks: { callback: v => (v / 1e6).toFixed(1) + 'M' } }
+      }
+    }
+  });
+
+  document.getElementById('title-scatter').textContent = 'Temps de parole vs Voix — Bleu: 2017, Orange: 2022';
+}
+
+function switchYear(year) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  currentYear = year;
+
+  // Reset subtitles
+  document.getElementById('title-temps').textContent = 'Temps de parole (heures)';
+  document.getElementById('title-voix').textContent = 'Nombre de voix (1er tour)';
+  document.getElementById('title-scatter').textContent = 'Temps de parole vs Voix (bulle = ratio)';
+
+  if (year === 'compare') {
+    renderCompare();
+  } else {
+    renderYear(year);
+  }
+}
+
+// Init
+renderYear('2017');
+</script>
+</body>
+</html>

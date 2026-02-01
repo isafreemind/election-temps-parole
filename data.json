@@ -1,0 +1,43 @@
+{
+  "elections": {
+    "2017": {
+      "description": "Élection présidentielle 2017 - 1er tour (23 avril 2017)",
+      "periode_temps_parole": "1er février au 21 avril 2017",
+      "source_temps_parole": "CSA via politologue.com",
+      "source_resultats": "Conseil constitutionnel",
+      "candidats": [
+        {"nom": "FILLON François", "voix": 7212995, "temps_parole_secondes": 1178862, "ratio_secondes_par_voix": 0.1634},
+        {"nom": "HAMON Benoît", "voix": 2291288, "temps_parole_secondes": 1022765, "ratio_secondes_par_voix": 0.4464},
+        {"nom": "MACRON Emmanuel", "voix": 8656346, "temps_parole_secondes": 944938, "ratio_secondes_par_voix": 0.1092},
+        {"nom": "LE PEN Marine", "voix": 7678491, "temps_parole_secondes": 926833, "ratio_secondes_par_voix": 0.1207},
+        {"nom": "MÉLENCHON Jean-Luc", "voix": 7059951, "temps_parole_secondes": 674990, "ratio_secondes_par_voix": 0.0956},
+        {"nom": "DUPONT-AIGNAN Nicolas", "voix": 1695000, "temps_parole_secondes": 246262, "ratio_secondes_par_voix": 0.1453},
+        {"nom": "POUTOU Philippe", "voix": 394505, "temps_parole_secondes": 163541, "ratio_secondes_par_voix": 0.4145},
+        {"nom": "ARTHAUD Nathalie", "voix": 232384, "temps_parole_secondes": 151184, "ratio_secondes_par_voix": 0.6506},
+        {"nom": "ASSELINEAU François", "voix": 332547, "temps_parole_secondes": 144563, "ratio_secondes_par_voix": 0.4347},
+        {"nom": "LASSALLE Jean", "voix": 435301, "temps_parole_secondes": 135173, "ratio_secondes_par_voix": 0.3105},
+        {"nom": "CHEMINADE Jacques", "voix": 65586, "temps_parole_secondes": 123151, "ratio_secondes_par_voix": 1.8777}
+      ]
+    },
+    "2022": {
+      "description": "Élection présidentielle 2022 - 1er tour (10 avril 2022)",
+      "periode_temps_parole": "1er janvier au 8 avril 2022",
+      "source_temps_parole": "Arcom via data.gouv.fr (CSV téléchargés à l'exécution)",
+      "source_resultats": "Conseil constitutionnel",
+      "candidats": [
+        {"nom": "MACRON Emmanuel", "voix": 9783058, "temps_parole_secondes": 281769, "ratio_secondes_par_voix": 0.0288},
+        {"nom": "LE PEN Marine", "voix": 8133828, "temps_parole_secondes": 224146, "ratio_secondes_par_voix": 0.0276},
+        {"nom": "MÉLENCHON Jean-Luc", "voix": 7712520, "temps_parole_secondes": 180296, "ratio_secondes_par_voix": 0.0234},
+        {"nom": "ZEMMOUR Éric", "voix": 2485226, "temps_parole_secondes": 156056, "ratio_secondes_par_voix": 0.0628},
+        {"nom": "PÉCRESSE Valérie", "voix": 1679001, "temps_parole_secondes": 219615, "ratio_secondes_par_voix": 0.1308},
+        {"nom": "JADOT Yannick", "voix": 1627853, "temps_parole_secondes": 127155, "ratio_secondes_par_voix": 0.0781},
+        {"nom": "LASSALLE Jean", "voix": 1101387, "temps_parole_secondes": 72586, "ratio_secondes_par_voix": 0.0659},
+        {"nom": "ROUSSEL Fabien", "voix": 802422, "temps_parole_secondes": 106579, "ratio_secondes_par_voix": 0.1328},
+        {"nom": "DUPONT-AIGNAN Nicolas", "voix": 725176, "temps_parole_secondes": 81861, "ratio_secondes_par_voix": 0.1129},
+        {"nom": "HIDALGO Anne", "voix": 616478, "temps_parole_secondes": 120329, "ratio_secondes_par_voix": 0.1952},
+        {"nom": "POUTOU Philippe", "voix": 268904, "temps_parole_secondes": 66629, "ratio_secondes_par_voix": 0.2478},
+        {"nom": "ARTHAUD Nathalie", "voix": 197094, "temps_parole_secondes": 72894, "ratio_secondes_par_voix": 0.3698}
+      ]
+    }
+  }
+}
