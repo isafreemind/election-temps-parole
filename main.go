@@ -78,6 +78,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Créer le répertoire data s'il n'existe pas
+	if err := os.MkdirAll("data", 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Erreur création répertoire data: %v\n", err)
+		os.Exit(1)
+	}
+
 	// --- 2017 : données complètes dans data.json ---
 	fmt.Println("==========================================================")
 	fmt.Println("  PRÉSIDENTIELLE 2017 - 1er tour (23 avril 2017)")
@@ -95,6 +101,14 @@ func main() {
 			Ratio:              ratio,
 		})
 	}
+	
+	// Exporter les données 2017 en CSV
+	if err := exportToCSV("data/2017_temps_parole_csa.csv", results2017, election2017); err != nil {
+		fmt.Fprintf(os.Stderr, "Erreur export CSV 2017: %v\n", err)
+	} else {
+		fmt.Println("  → Données exportées: data/2017_temps_parole_csa.csv")
+	}
+	
 	displayTable(results2017)
 
 	// --- 2022 : téléchargement CSV + données voix dans data.json ---
@@ -125,6 +139,14 @@ func main() {
 			Ratio:              ratio,
 		})
 	}
+	
+	// Exporter les données 2022 en CSV
+	if err := exportToCSV("data/2022_temps_parole_arcom.csv", results2022, election2022); err != nil {
+		fmt.Fprintf(os.Stderr, "Erreur export CSV 2022: %v\n", err)
+	} else {
+		fmt.Println("  → Données exportées: data/2022_temps_parole_arcom.csv")
+	}
+	
 	displayTable(results2022)
 }
 
@@ -349,6 +371,77 @@ func displayTable(results []CandidatResult) {
 	fmt.Println()
 	fmt.Println("  Ratio = secondes de temps de parole / nombre de voix obtenues au 1er tour")
 	fmt.Println("  Plus le ratio est élevé, plus le candidat a eu de temps de parole par voix obtenue.")
+}
+
+// exportToCSV exporte les résultats dans un fichier CSV
+func exportToCSV(filepath string, results []CandidatResult, election ElectionJSON) error {
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("création fichier: %w", err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	writer.Comma = ';'
+	defer writer.Flush()
+
+	// En-tête
+	header := []string{
+		"Candidat",
+		"Voix",
+		"Pourcentage Voix",
+		"Temps Parole (secondes)",
+		"Temps Parole (HH:MM:SS)",
+		"Ratio (s/voix)",
+		"Période",
+		"Source Temps Parole",
+		"Source Résultats",
+	}
+	if err := writer.Write(header); err != nil {
+		return fmt.Errorf("écriture header: %w", err)
+	}
+
+	// Calculer le total des voix pour les pourcentages
+	totalVoix := 0
+	for _, r := range results {
+		totalVoix += r.Voix
+	}
+
+	// Trier par ratio décroissant (comme dans l'affichage)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Ratio > results[j].Ratio
+	})
+
+	// Données
+	for _, r := range results {
+		pourcentageVoix := (float64(r.Voix) / float64(totalVoix)) * 100
+		heures := r.TempsParoleSeconds / 3600
+		minutes := (r.TempsParoleSeconds % 3600) / 60
+		secondes := r.TempsParoleSeconds % 60
+		tempsFormate := fmt.Sprintf("%02d:%02d:%02d", heures, minutes, secondes)
+
+		ratioStr := ""
+		if r.Ratio > 0 {
+			ratioStr = fmt.Sprintf("%.6f", r.Ratio)
+		}
+
+		record := []string{
+			r.Nom,
+			fmt.Sprintf("%d", r.Voix),
+			fmt.Sprintf("%.2f", pourcentageVoix),
+			fmt.Sprintf("%d", r.TempsParoleSeconds),
+			tempsFormate,
+			ratioStr,
+			election.PeriodeTempsParole,
+			election.SourceTempsParole,
+			election.SourceResultats,
+		}
+		if err := writer.Write(record); err != nil {
+			return fmt.Errorf("écriture ligne: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // formatNumber formate un nombre avec des espaces comme séparateur de milliers
